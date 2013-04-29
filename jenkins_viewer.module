@@ -1,0 +1,461 @@
+<?php
+
+/**
+ * A simple Drupal plugin that reads Jenkins databases.
+ * @author Calclavia
+ */
+
+class Build
+{
+	public $jobName = "";
+
+	public $jobDirectory = "";
+
+	/**
+	 * The build number.
+	 */
+	public $number = 0;
+
+	/**
+	 * The stability value for the build. 0 - Fail, 1 - Successful, 2 - Promoted.
+	 */
+	public $stability = 0;
+
+	/**
+	 * Description of that specific build. Includes changes and information.
+	 */
+	public $description = "";
+
+	/**
+	 * Description of what this specific build of the software depends on.
+	 */
+	public $dependency = "";
+
+	/**
+	 * Each artifact file URL will be stored here avaliable for download.
+	 */
+	public $artifacts = array();
+
+	/**
+	 * Outputs the build as a row in an HTML table.
+	 */
+	public function getAsRow()
+	{
+		$collum = array();
+		$collum[] = "#" . $this -> number;
+		$collum[] = $this -> dependency;
+		$collum[] = $this -> getArtifactsAsDiv();
+
+		return $collum;
+	}
+
+	public function getArtifactsAsDiv()
+	{
+		$downloadFile = variable_get('jenkins_viewer_download_file');
+		$outputDir = variable_get('jenkins_viewer_output_directory');
+		$buttonClass = "";
+
+		//Check and see if this build is promoted.
+		if ($this -> stability == 2)
+		{
+			$class = "build_promoted";
+			$buttonClass = "btn-success";
+		}
+
+		$artifactHTML = "<div class='btn-group'>";
+
+		//Loop through each artifact
+		foreach ($this->artifacts as $artifact)
+		{
+			if ($artifact && !empty($artifact))
+			{
+				if (strstr($artifact, ".jar"))
+				{
+					$fileNameData = explode(".jar", $artifact);
+				}
+				else
+				{
+					$fileNameData = explode(".zip", $artifact);
+				}
+
+				if($downloadFile)
+				{
+					$url = $downloadFile . "?name={$this->jobName}&r=" . urlencode($this -> jobDirectory . "builds/{$this->number}$outputDir$artifact");
+				}
+				else 
+				{
+					$url = $this -> jobDirectory . "builds/{$this->number}$outputDir$artifact";	
+				}
+				
+				$artifactHTML .= "<a class='btn btn-small $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
+			}
+		}
+
+		$artifactHTML .= "</div>";
+
+		return $artifactHTML;
+	}
+
+}
+
+/**
+ * ---- Menu Functions
+ */
+function jenkins_viewer_admin()
+{
+	$form = array();
+
+	$form['jenkins_viewer_directory'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Jenkins Jobs Directory'),
+		'#default_value' => variable_get('jenkins_viewer_directory', "/var/lib/jenkins/jobs/"),
+		'#description' => t("The Jenkins server internal job directory."),
+		'#required' => true,
+	);
+	
+	$form['jenkins_viewer_url'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Jenkins Jobs URL Directory'),
+		'#default_value' => variable_get('jenkins_viewer_url', $GLOBALS['base_url']),
+		'#description' => t("The Jenkins directory in which all jobs and builds are stored inside, usually named as 'jobs'. You may use symbolic links to make this directory accessable."),
+		'#required' => true,
+	);
+	
+	$form['jenkins_viewer_output_directory'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Output Directory'),
+		'#default_value' => variable_get('jenkins_viewer_output_directory', "archive/output"),
+		'#description' => t("The directory to search for artifacts relative to the build directory."),
+		'#required' => true,
+	);
+	
+	$form['jenkins_viewer_download_file'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Download File'),
+		'#default_value' => variable_get('jenkins_viewer_download_file', $GLOBALS['base_url']."/download.php"),
+		'#description' => t("The url to send a artifact download link to. The file will be passed with an 'r' get variable specifiying the URL of the download. Leave this for a direct link."),
+		'#required' => false,
+	);
+	
+		$form['jenkins_viewer_build_properties'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Build Properties Interpretation'),
+		'#default_value' => variable_get('jenkins_viewer_build_properties', "version.dependency=%1%;"),
+		'#description' => t("Replaces and interpretes the build.properties file in a specific manner."),
+		'#required' => false,
+	);
+	
+	/*
+	$form['jewnkins_viewer_show'] = array(
+		'#type' => 'checkboxes',
+		'#title' => t('Show Builds'),
+		'#options' => drupal_map_assoc(array(variable_get('jewnkins_viewer_show', false),variable_get('jewnkins_viewer_show', false),variable_get('jewnkins_viewer_show', false))),
+		'#description' => t("Check the types of builds you wish to show."),
+		'#required' => false,
+	);*/
+
+	return system_settings_form($form);
+}
+
+function jenkins_viewer_menu()
+{
+	$items = array();
+
+	$items['admin/config/system/jenkins_viewer'] = array(
+		'title' => 'Jenkins Viewer Settings',
+		'description' => 'Settings for the Jenkins Viewer',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('jenkins_viewer_admin'),
+		'access arguments' => array('administer jenkins_viewer settings'),
+		'type' => MENU_NORMAL_ITEM,
+	);
+
+	return $items;
+}
+
+function getFilesInDir($path)
+{
+	$files = array();
+
+	if ($handle = opendir($path))
+	{
+		while (false !== ($entry = readdir($handle)))
+		{
+			if ($entry != "." && $entry != "..")
+			{
+				$folder = $path . $entry;
+
+				if (!is_link($folder))
+				{
+					$files[] = $entry;
+				}
+			}
+		}
+	}
+	closedir($handle);
+
+	return $files;
+}
+
+function parse_properties($txtProperties)
+{
+	$result = array();
+
+	$lines = explode("\n", $txtProperties);
+	$key = "";
+
+	$isWaitingOtherLine = false;
+	foreach ($lines as $i => $line)
+	{
+
+		if (empty($line) || (!$isWaitingOtherLine && strpos($line, "#") === 0))
+			continue;
+
+		if (!$isWaitingOtherLine)
+		{
+			$key = substr($line, 0, strpos($line, '='));
+			$value = substr($line, strpos($line, '=') + 1, strlen($line));
+		}
+		else
+		{
+			$value .= $line;
+		}
+
+		/* Check if ends with single '\' */
+		if (strrpos($value, "\\") === strlen($value) - strlen("\\"))
+		{
+			$value = substr($value, 0, strlen($value) - 1) . "\n";
+			$isWaitingOtherLine = true;
+		}
+		else
+		{
+			$isWaitingOtherLine = false;
+		}
+
+		$result[$key] = $value;
+		unset($lines[$i]);
+	}
+
+	return $result;
+}
+
+function readBuilds($jobName)
+{
+	$jobUrl = variable_get('jenkins_viewer_directory');
+	$jobGlobalUrl = variable_get('jenkins_viewer_url');
+	$buildDir = $jobUrl . $jobName . "/builds/";
+	$outputDir = variable_get('jenkins_viewer_output_directory');
+
+	$buildFolders = getFilesInDir($buildDir);
+
+	if(count($buildFolders) > 0)
+	{
+		//An array of builds to be displayed.
+		$builds = array();
+	
+		foreach ($buildFolders as $buildFolder)
+		{
+			$buildXML = $buildDir . $buildFolder . "/build.xml";
+	
+			if (file_exists($buildXML))
+			{
+				//Read build.xml file from Jenkins
+				$xml = simplexml_load_file($buildXML);
+	
+				$build = new Build();
+				$build -> jobName = $jobName;
+				$build -> jobDirectory = $jobGlobalUrl . $jobName . "/";
+				$build -> number = intval($xml -> number);
+	
+				if ($xml -> result == "SUCCESS")
+				{
+					$build -> stability = 1;
+					
+					$promotedBuild = $xml -> actions->{'hudson.plugins.promoted__builds.PromotedBuildAction'};
+	
+					if (isset($promotedBuild))
+					{
+						if (isset($promotedBuild -> statuses))
+						{
+							if (isset($promotedBuild -> statuses -> {'hudson.plugins.promoted__builds.Status'}))
+							{
+								if (isset($promotedBuild -> statuses -> {'hudson.plugins.promoted__builds.Status'} -> promotion))
+								{
+									$build -> stability = 2;
+								}
+							}
+						}
+					}
+				}
+	
+				//Get Artifacts
+				$artifactFolder = $buildDir . $buildFolder . $outputDir;
+	
+				if (file_exists($artifactFolder))
+				{
+					$artifacts = getFilesInDir($artifactFolder);
+	
+					foreach ($artifacts as $artifact)
+					{
+						//Read build properties file.
+						if ($artifact == "build.properties")
+						{
+							$interpretationString = variable_get('jenkins_viewer_build_properties');
+							$properties = parse_properties(file_get_contents($artifactFolder . $artifact));
+							
+							if($properties && !empty($interpretationString))
+							{
+								$interpretations = explode(";", $interpretationString);
+
+								foreach($interpretations as $interpretation)
+								{
+									if(!empty($interpretation))
+									{
+										$interpretation = explode("=", $interpretation, 2);
+										if (isset($properties[$interpretation[0]]))
+										{
+											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]);
+										}
+									}
+								}
+							}
+						}
+						else
+						{
+							$build -> artifacts[] = $artifact;
+						}
+					}
+	
+					sort($build -> artifacts);
+					
+					//Get Description, read changelog
+					$changelogFile = $buildDir . $buildFolder . "/changelog.xml";
+					//$build -> description = date("F j, Y", intval($xml->startTime));
+					$changelogXML = file_get_contents($changelogFile);
+					$lines = explode("\n", $changelogXML);
+					$read = false;
+					$isDescriptionEmpty = true;
+					
+					$build -> description = "<ul>";
+					
+					foreach($lines as $line)
+					{
+						if (strpos($line, 'committer') !== false)
+						{
+							$read = !$read;
+							continue;
+						}
+						
+						if($line != "" && !empty($line) && $read)
+						{
+							$lineToAdd = "<li>". ucfirst(trim($line)) ."</li>";
+							
+							if (!strpos($build -> description, $lineToAdd) !== false)
+							{
+								$build -> description .= $lineToAdd;
+								$isDescriptionEmpty = false;
+							}
+							
+							$read = false;
+						}
+					}
+					
+					$build -> description .= "</ul>";
+					
+					if($isDescriptionEmpty)
+					{
+						$build -> description = "";
+					}
+					
+					$build -> description = trim($build -> description);
+				}
+	
+				$builds[] = $build;
+			}
+		}
+	
+		//Sort builds by build number.
+		usort($builds, function($a, $b)
+		{
+			if ($a -> number == $b -> number)
+			{
+				return 0;
+			}
+			else if ($a -> number > $b -> number)
+			{
+				return -1;
+			}
+			else
+			{
+				return 1;
+			}
+		});
+	
+		//Create Table of Builds
+		$rows = array();
+	
+		foreach ($builds as $build)
+		{
+			if ($build -> stability > 0 && count($build -> artifacts) > 0)
+			{				
+				if(!empty($build -> description))
+				{
+					$rows[] = array('data' => $build -> getAsRow(), 'onclick' => "$(this).next().stop(true, true).fadeToggle()", 'style' => 'cursor:pointer');
+					$rows[] = array('data' => array(array('data' => $build -> description, 'colspan' => 3)), 'style' => 'display:none');
+				}
+				else 
+				{
+					$rows[] = $build -> getAsRow();
+				}
+			}
+		}
+	
+		$header = array(
+			t('Build Number'),
+			t('Dependency'),
+			t('Artifacts (Click for Changelog)'),
+		);
+	
+		return theme("table", array(
+			'header' => $header,
+			'rows' => $rows
+		));
+	}
+
+	return t("Failed to find Jenkins build data for '$jobName'. Please come back later!");
+}
+
+/**
+ * ---- Token Functions
+ */
+function jenkins_viewer_token_info()
+{
+	$info['tokens']['jenkins'] = array(
+		'name' => t('Jenkins'),
+		'description' => t('This will display a list of builds from a Jenkins job.'),
+	);
+	return $info;
+}
+
+/**
+ * Implements hook_tokens(). This hook will operate the token and replace it with its value.
+ */
+function jenkins_viewer_tokens($type, $tokens, array $data = array(), array $options = array())
+{
+	$replacements = array();
+	$sanitize = !empty($options['sanitize']);
+
+	if ($type == 'jenkins')
+	{
+		foreach ($tokens as $jobName => $original)
+		{
+			if ($jobName)
+			{
+				$replacements[$original] = readBuilds($jobName);
+				break;
+			}
+		}
+	}
+	return $replacements;
+}
+?>

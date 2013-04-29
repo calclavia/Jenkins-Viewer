@@ -1,0 +1,7 @@
+name = Jenkins Viewer
+description = Jenkins Viewer is a Drupal plugin that creates a token that will be replaced with a Jenkins build page, giving a list of builds as well as downloads for specific job.
+core = 7.x
+dependencies[] = token
+dependencies[] = token_filter
+project = "jenkins_viewer"
+files[] = jenkins_viewer.module
