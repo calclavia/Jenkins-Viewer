@@ -62,7 +62,7 @@ class Build
 			$buttonClass = "btn-success";
 		}
 
-		$artifactHTML = "<div class='btn-group'>";
+		$artifactHTML = "<div class='btn-group btn-group-sm'>";
 
 		//Loop through each artifact
 		foreach ($this->artifacts as $artifact)
