@@ -84,14 +84,14 @@ class Build
 
 				if($downloadFile)
 				{
-					$url = $downloadFile . "?name={$this->jobName}&r=" . urlencode($this -> jobDirectory . "builds/{$this->number}$outputDir$artifact");
+					$url = $downloadFile . "?name={$this->jobName}&r=" . urlencode($this -> jobDirectory . "builds/{$this->number}/{$outputDir}/{$artifact}");
 				}
 				else 
 				{
-					$url = $this -> jobDirectory . "builds/{$this->number}$outputDir$artifact";	
+					$url = $this -> jobDirectory . "builds/{$this->number}/{$outputDir}/{$artifact}";	
 				}
 				
-				$artifactHTML .= "<a class='btn btn-small $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
+				$artifactHTML .= "<a class='build-link btn btn-small $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
 			}
 		}
 
@@ -218,9 +218,9 @@ function readBuilds($jobName)
 				}
 	
 				//Get Artifacts
-				$artifactFolder = $buildDir . $buildFolder . $outputDir;
-	
-				if (file_exists($artifactFolder))
+				$artifactFolder = $buildDir . $buildFolder . "/" . $outputDir;
+
+                if (file_exists($artifactFolder))
 				{
 					$artifacts = getFilesInDir($artifactFolder);
 	
@@ -230,8 +230,7 @@ function readBuilds($jobName)
 						if ($artifact == "build.properties")
 						{
 							$interpretationString = get_option('jenkins_viewer_build_properties');
-							$properties = parse_properties(file_get_contents($artifactFolder . $artifact));
-							
+							$properties = parse_properties(file_get_contents($artifactFolder . "/" . $artifact));
 							if($properties && !empty($interpretationString))
 							{
 								$interpretations = explode(";", $interpretationString);
@@ -243,7 +242,7 @@ function readBuilds($jobName)
 										$interpretation = explode("=", $interpretation, 2);
 										if (isset($properties[$interpretation[0]]))
 										{
-											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]);
+											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]) . " ";
 										}
 									}
 								}
@@ -320,53 +319,50 @@ function readBuilds($jobName)
 			}
 		});
 	
-		//Create Table of Builds
-		$rows = array();
-	
-		foreach ($builds as $build)
-		{
-			if ($build -> stability > 0 && count($build -> artifacts) > 0)
-			{				
-				/*if(!empty($build -> description))
-				{
-					$rows[] = array('data' => $build -> getAsRow(), 'onclick' => "$(this).next().stop(true, true).fadeToggle()", 'style' => 'cursor:pointer');
-					$rows[] = array('data' => array(array('data' => $build -> description, 'colspan' => 3)), 'style' => 'display:none');
-				}
-				else 
-				{
-					$rows[] = $build -> getAsRow();
-				}*/
-                
-                $rows[] = $build -> getAsRow();
-			}
-		}
-	
-		$header = array(
-			'Build Number',
-			'Dependency',
-			'Artifacts (Click for Changelog)'
-		);
-        
         /**
          * Build Table
          */
-        $htmlTable = '<table class="table table-striped">';
+        $htmlTable = '<div class="table-responsive"><table class="table table-striped">';
+        $htmlTable .= "<thead><tr><td>#</td><td>Dependency</td><td>Artifacts</td></tr></thead>";
         
-        foreach($rows as $row)
-        {
-            $htmlTable .= "<tr>";
-            
-            foreach($row as $column)
+		foreach ($builds as $build)
+		{
+			if ($build -> stability > 0 && count($build -> artifacts) > 0)
             {
-                $htmlTable .= "<td>";
-                $htmlTable .= $column;
-                $htmlTable .= "</td>";
-            }
-            
-            $htmlTable .= "</tr>";
-        }
+				if(!empty($build -> description))
+				{
+                    $htmlTable .= "<tr style='cursor:pointer' onclick='$(this).next().stop(true, true).fadeToggle()'>";
+
+                    foreach($build -> getAsRow() as $column)
+                    {
+                        $htmlTable .= "<td>";
+                        $htmlTable .= $column;
+                        $htmlTable .= "</td>";
+                    }
+                    
+                    $htmlTable .= "</tr>";
+                    
+                    $htmlTable .= "<tr style='display:none'>";
+                    $htmlTable .= "<td colspan='3'>" . $build -> description . "</td>";
+                    $htmlTable .= "</tr>";
+				}
+				else
+				{
+                    $htmlTable .= "<tr>";
+                    
+                    foreach($build -> getAsRow() as $column)
+                    {
+                        $htmlTable .= "<td>";
+                        $htmlTable .= $column;
+                        $htmlTable .= "</td>";
+                    }
+                    
+                    $htmlTable .= "</tr>";
+				}
+			}
+		}
         
-        $htmlTable .= "</table>";
+        $htmlTable .= "</table></div>";
 		return $htmlTable;
 	}
 
@@ -478,12 +474,12 @@ function jk_setting_url()
 
 function jk_setting_output_directory()
 {
- 	echo '<input name="jenkins_viewer_output_directory" type="text" value="' . get_option( 'jenkins_viewer_output_directory' ) . '" /> The directory to search for artifacts relative to the build directory.';
+ 	echo '<input name="jenkins_viewer_output_directory" type="text" value="' . get_option( 'jenkins_viewer_output_directory' ) . '" /> The directory to search for artifacts relative to the build directory. No trailing slash or beginning with a slash.';
 }
 
 function jk_setting_download_file()
 {
- 	echo '<input name="jenkins_viewer_download_file" type="text" value="' . get_option( 'jenkins_viewer_download_file' ) . '" /> The url to send a artifact download link to. The file will be passed with an "r" get variable specifiying the URL of the download. Leave this for a direct link.';
+ 	echo '<input name="jenkins_viewer_download_file" type="text" value="' . get_option( 'jenkins_viewer_download_file' ) . '" /> (Optional, leaving this blank will default to the Jenkins URL) The url to send a artifact download link to. The file will be passed with an "r" get variable specifiying the URL of the download. Leave this for a direct link.';
 }
 
 function jk_setting_build_parse()
