@@ -87,7 +87,7 @@ class Build
 				if($downloadFile)
 				{
                     //Encodes the request with the job name and the request file.
-					$url = $downloadFile . "?r=" . base64_encode($this->jobName .",". $requestFile);
+					$url = $downloadFile . "?name=". rawurlencode($this->jobName) ."&r=" . rawurlencode($requestFile);
 				}
 				else 
 				{
