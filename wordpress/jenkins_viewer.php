@@ -57,7 +57,7 @@ class Build
 	{
 		$downloadFile = get_option('jenkins_viewer_download_file');
 		$outputDir = get_option('jenkins_viewer_output_directory');
-		$buttonClass = "btn-primary";
+		$buttonClass = "btn-default";
 
 		//Check and see if this build is promoted.
 		if ($this -> stability == 2)
@@ -66,7 +66,7 @@ class Build
 			$buttonClass = "btn-success";
 		}
 
-		$artifactHTML = "<div class='btn-group btn-group-sm'>";
+		$artifactHTML = "<div class='btn-group btn-group-justified btn-group-sm'>";
 
 		//Loop through each artifact
 		foreach ($this->artifacts as $artifact)
