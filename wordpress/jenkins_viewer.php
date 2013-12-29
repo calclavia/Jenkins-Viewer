@@ -81,14 +81,17 @@ class Build
 				{
 					$fileNameData = explode(".zip", $artifact);
 				}
+                
+                $requestFile = $this -> jobDirectory. "builds/{$this->number}/{$outputDir}/{$artifact}";
 
 				if($downloadFile)
 				{
-					$url = $downloadFile . "?name={$this->jobName}&r=" . urlencode($this -> jobDirectory . "builds/{$this->number}/{$outputDir}/{$artifact}");
+                    //Encodes the request with the job name and the request file.
+					$url = $downloadFile . "?r=" . base64_encode($this->jobName .",". $requestFile);
 				}
 				else 
 				{
-					$url = $this -> jobDirectory . "builds/{$this->number}/{$outputDir}/{$artifact}";	
+					$url = $requestFile;	
 				}
 				
 				$artifactHTML .= "<a class='build-link btn btn-small $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
