@@ -66,7 +66,7 @@ class Build
 			$buttonClass = "btn-success";
 		}
 
-		$artifactHTML = "<div class='btn-group btn-group-justified btn-group-sm'>";
+		$artifactHTML = "<div>";
 
 		//Loop through each artifact
 		foreach ($this->artifacts as $artifact)
@@ -94,7 +94,7 @@ class Build
 					$url = $requestFile;	
 				}
 				
-				$artifactHTML .= "<a class='build-link btn btn-small $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
+				$artifactHTML .= "<a class='build-link btn $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
 			}
 		}
 
