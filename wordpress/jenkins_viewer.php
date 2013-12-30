@@ -237,7 +237,8 @@ function readBuilds($jobName)
 							if($properties && !empty($interpretationString))
 							{
 								$interpretations = explode(";", $interpretationString);
-
+                                $isFirst = true;
+                                
 								foreach($interpretations as $interpretation)
 								{
 									if(!empty($interpretation))
@@ -245,7 +246,14 @@ function readBuilds($jobName)
 										$interpretation = explode("=", $interpretation, 2);
 										if (isset($properties[$interpretation[0]]))
 										{
-											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]) . " ";
+                                            if(!$isFirst)
+                                            {
+                                                $build -> dependency .= ", ";
+                                            }
+                                            
+                                            $isFirst = false;
+
+											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]);
 										}
 									}
 								}
