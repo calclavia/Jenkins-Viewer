@@ -250,10 +250,13 @@ function readBuilds($jobName)
                                             {
                                                 $build -> dependency .= ", ";
                                             }
-                                            
-                                            $isFirst = false;
 
 											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]);
+                                            
+                                            if(!empty($build -> dependency))
+                                            {
+                                                $isFirst = false;
+                                            }
 										}
 									}
 								}
