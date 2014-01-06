@@ -336,8 +336,8 @@ function readBuilds($jobName)
         /**
          * Build Table
          */
-        $htmlTable = '<div class="table-responsive"><table class="table table-striped">';
-        $htmlTable .= "<thead><tr><td>#</td><td>Dependency</td><td>Artifacts</td></tr></thead>";
+        $htmlTable = '<div class="table-responsive"><table class="table table-striped jenkins-build-table">';
+        $htmlTable .= "<thead><tr onclick=\"$('.jenkins-build-table').children('.changelog').toggle();\"><td>#</td><td>Dependency</td><td>Artifacts</td><td style='cursor:pointer' align='right'>Changelog<b class='caret'></b></td></tr></thead>";
         
 		foreach ($builds as $build)
 		{
@@ -345,7 +345,7 @@ function readBuilds($jobName)
             {
 				if(!empty($build -> description))
 				{
-                    $htmlTable .= "<tr style='cursor:pointer' onclick='$(this).next().stop(true, true).fadeToggle()'>";
+                    $htmlTable .= "<tr onclick='$(this).next().stop(true, true).fadeToggle()'>";
 
                     foreach($build -> getAsRow() as $column)
                     {
@@ -354,10 +354,11 @@ function readBuilds($jobName)
                         $htmlTable .= "</td>";
                     }
                     
+                    $htmlTable .= "<td style='cursor:pointer' align='right'><b class='caret'></b></td>";
                     $htmlTable .= "</tr>";
                     
-                    $htmlTable .= "<tr style='display:none'>";
-                    $htmlTable .= "<td colspan='3'>" . $build -> description . "</td>";
+                    $htmlTable .= "<tr class='changelog' style='display:none'>";
+                    $htmlTable .= "<td colspan='4'>" . $build -> description . "</td>";
                     $htmlTable .= "</tr>";
 				}
 				else
