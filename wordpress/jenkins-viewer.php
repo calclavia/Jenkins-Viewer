@@ -62,11 +62,10 @@ class Build
 		//Check and see if this build is promoted.
 		if ($this -> stability == 2)
 		{
-			$class = "build_promoted";
-			$buttonClass = "btn-success";
+			$buildLinkClass = "build-promoted";
 		}
 
-		$artifactHTML = "<div>";
+		$artifactHTML = "<ul class='list-unstyled'>";
 
 		//Loop through each artifact
 		foreach ($this->artifacts as $artifact)
@@ -94,11 +93,11 @@ class Build
 					$url = $requestFile;	
 				}
 				
-				$artifactHTML .= "<a class='build-link btn $buttonClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a> ";
+				$artifactHTML .= "<li><a class='build-link $buildLinkClass' href='$url' target='_blank'>" . $fileNameData[0] . "</a></li>";
 			}
 		}
 
-		$artifactHTML .= "</div>";
+		$artifactHTML .= "</ul>";
 
 		return $artifactHTML;
 	}
@@ -239,6 +238,8 @@ function readBuilds($jobName)
 								$interpretations = explode(";", $interpretationString);
                                 $isFirst = true;
                                 
+                                $build -> dependency = "<ul class='list-unstyled'>";
+                                
 								foreach($interpretations as $interpretation)
 								{
 									if(!empty($interpretation))
@@ -246,23 +247,23 @@ function readBuilds($jobName)
 										$interpretation = explode("=", $interpretation, 2);
 										if (isset($properties[$interpretation[0]]))
 										{
-                                            if(!$isFirst)
-                                            {
-                                                $build -> dependency .= ", ";
-                                            }
-
+                                            $build -> dependency .= "<li>";
 											$build -> dependency .= str_replace("%1%", $properties[$interpretation[0]], $interpretation[1]);
                                             
                                             if(!empty($build -> dependency))
                                             {
                                                 $isFirst = false;
                                             }
+                                            
+                                            $build -> dependency .= "</li>";
 										}
 									}
 								}
+                                
+                                 $build -> dependency .= "</ul>";
 							}
 						}
-						else
+						else if(!strstr($artifact, ".txt"))
 						{
 							$build -> artifacts[] = $artifact;
 						}
@@ -336,7 +337,7 @@ function readBuilds($jobName)
         /**
          * Build Table
          */
-        $htmlTable = '<div class="table-responsive"><table class="table table-striped jenkins-build-table">';
+        $htmlTable = '<div class="table-responsive"><table class="table jenkins-build-table">';
         $htmlTable .= "<thead><tr onclick=\"$('.jenkins-build-table').children('.changelog').toggle();\"><td>#</td><td>Dependency</td><td>Artifacts</td><td style='cursor:pointer' align='right'>Changelog<b class='caret'></b></td></tr></thead>";
         
 		foreach ($builds as $build)
@@ -345,7 +346,10 @@ function readBuilds($jobName)
             {
 				if(!empty($build -> description))
 				{
-                    $htmlTable .= "<tr onclick='$(this).next().stop(true, true).fadeToggle()'>";
+                    if($build -> stability == 2)
+                        $trClass = "success";
+                    
+                    $htmlTable .= "<tr class='$trClass' onclick='$(this).next().stop(true, true).fadeToggle()'>";
 
                     foreach($build -> getAsRow() as $column)
                     {
@@ -372,6 +376,7 @@ function readBuilds($jobName)
                         $htmlTable .= "</td>";
                     }
                     
+                    $htmlTable .= "<td></td>";
                     $htmlTable .= "</tr>";
 				}
 			}
