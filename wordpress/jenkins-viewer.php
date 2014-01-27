@@ -346,6 +346,8 @@ function readBuilds($jobName)
             {
 				if(!empty($build -> description))
 				{
+					$trClass = "";
+					
                     if($build -> stability == 2)
                         $trClass = "success";
                     
